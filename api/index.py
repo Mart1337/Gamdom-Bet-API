@@ -1,11 +1,14 @@
-from flask import Flask, jsonify
-from flask_socketio import SocketIO, emit
-from threading import Thread
+from fastapi import FastAPI, Request, WebSocket
+from typing import Set
 import websocket
+from fastapi.responses import JSONResponse
 import json
+from threading import Thread
 
-app = Flask(__name__)
-socketio = SocketIO(app)
+app = FastAPI()
+
+# Créer un ensemble pour stocker les connexions WebSocket actives
+websockets: Set[WebSocket] = set()
 
 last_bet_data = {}
 gamdom_user = "take123"
@@ -13,7 +16,10 @@ gamdom_user = "take123"
 def on_message(ws, message):
     global last_bet_data
     last_bet_data = check_user_and_return(message)
-    socketio.emit('last_bet_update', last_bet_data) 
+    # Envoyer les données à tous les clients WebSocket connectés
+    for ws_instance in websockets:
+        ws_instance.send_json(last_bet_data)
+
 def on_error(ws, error):
     print(f"Error: {error}")
 
@@ -47,20 +53,31 @@ def check_user_and_return(message):
 
     except json.JSONDecodeError as e:
         print(f"can't resolve json : {e}")
+        
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    # Ajouter la nouvelle connexion WebSocket à l'ensemble
+    websockets.add(websocket)
 
-    return {} 
+    while True:
+        try:
+            message = await websocket.receive_text()
+            print(f"Received message: {message}")
+        except Exception as e:
+            print(f"Error: {e}")
+            break
+
+    # Supprimer la connexion WebSocket lorsqu'elle est fermée
+    websockets.remove(websocket)
 
 @app.route('/last_bet')
-def get_last_bet():
+async def get_last_bet(request: Request):  # Modifier ici pour accepter une requête
     global last_bet_data
     if last_bet_data:
-        return jsonify(last_bet_data)
+        return JSONResponse(content=last_bet_data)
     else:
-        return jsonify({"message": f"No bet found for {gamdom_user}"})
-
-@socketio.on('connect')
-def handle_connect():
-    emit('last_bet_update', last_bet_data)
+        return JSONResponse(content={"message": f"No bet found for {gamdom_user}"})
 
 if __name__ == "__main__":
     websocket.enableTrace(False)
@@ -74,4 +91,5 @@ if __name__ == "__main__":
     ws_thread = Thread(target=ws.run_forever)
     ws_thread.start()
 
-    socketio.run(app)  
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)
