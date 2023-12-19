@@ -53,6 +53,15 @@ def check_user_and_return(message):
     except json.JSONDecodeError as e:
         print(f"can't resolve json : {e}")
         
+async def connect_to_websocket():
+    async with websockets.connect('wss://gamdom.com/socket.io/?EIO=3&transport=websocket') as websocket:  # Remplacez par votre URL WebSocket
+        # Envoyer une demande ou un message au serveur WebSocket pour récupérer les données
+        await websocket.send("40/general,")
+        
+        # Attendre la réponse du serveur WebSocket
+        response = await websocket.recv()
+        return response        
+        
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -70,13 +79,14 @@ async def websocket_endpoint(websocket: WebSocket):
     # Supprimer la connexion WebSocket lorsqu'elle est fermée
     websockets.remove(websocket)
 
-@app.route('/last_bet')
-async def get_last_bet(request: Request):  # Modifier ici pour accepter une requête
-    global last_bet_data
-    if last_bet_data:
-        return JSONResponse(content=last_bet_data)
-    else:
-        return JSONResponse(content={"message": f"No bet found for {gamdom_user}"})
+    @app.route('/last_bet')
+    async def get_last_bet(request: Request):  # Modifier ici pour accepter une requête
+        data_from_websocket = await connect_to_websocket()
+        
+        # Traiter les données reçues si nécessaire
+        
+        # Retourner les données récupérées en réponse à la requête HTTP
+        return JSONResponse(content={"data": data_from_websocket})
 
 if __name__ == "__main__":
     websocket.enableTrace(False)
@@ -85,10 +95,7 @@ if __name__ == "__main__":
                                 on_message=on_message,
                                 on_error=on_error,
                                 on_close=on_close)
-    ws.on_open = on_open
 
-    ws_thread = Thread(target=ws.run_forever)
-    ws_thread.start()
 
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
