@@ -1,25 +1,25 @@
 from flask import Flask, jsonify
+from flask_socketio import SocketIO, emit
 from threading import Thread
 import websocket
 import json
 
 app = Flask(__name__)
+socketio = SocketIO(app)
 
-last_bet_data = {}  
-
-gamdom_user = "tyler1p"
+last_bet_data = {}
+gamdom_user = "take123"
 
 def on_message(ws, message):
     global last_bet_data
     last_bet_data = check_user_and_return(message)
-
+    socketio.emit('last_bet_update', last_bet_data) 
 def on_error(ws, error):
     print(f"Error: {error}")
 
 def on_close(ws, close_status_code, close_msg):
     ws_thread = Thread(target=ws.run_forever)
     ws_thread.start()
-
     print("WebSocket closed")
 
 def on_open(ws):
@@ -43,6 +43,7 @@ def check_user_and_return(message):
 
                 if username == gamdom_user:
                     return recent
+                
 
     except json.JSONDecodeError as e:
         print(f"can't resolve json : {e}")
@@ -57,6 +58,10 @@ def get_last_bet():
     else:
         return jsonify({"message": f"No bet found for {gamdom_user}"})
 
+@socketio.on('connect')
+def handle_connect():
+    emit('last_bet_update', last_bet_data)
+
 if __name__ == "__main__":
     websocket.enableTrace(False)
 
@@ -69,4 +74,4 @@ if __name__ == "__main__":
     ws_thread = Thread(target=ws.run_forever)
     ws_thread.start()
 
-    app.run()  # Démarrer l'API Flask
+    socketio.run(app)  
