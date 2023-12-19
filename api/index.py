@@ -8,7 +8,7 @@ app = Flask(__name__)
 socketio = SocketIO(app)
 
 last_bet_data = {}
-gamdom_user = "banksy 3"
+gamdom_user = "take123"
 
 def on_message(ws, message):
     global last_bet_data
