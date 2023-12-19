@@ -7,7 +7,7 @@ from threading import Thread
 
 app = FastAPI()
 
-# Créer un ensemble pour stocker les connexions WebSocket actives
+
 websockets: Set[WebSocket] = set()
 
 last_bet_data = {}
@@ -16,7 +16,6 @@ gamdom_user = "take123"
 def on_message(ws, message):
     global last_bet_data
     last_bet_data = check_user_and_return(message)
-    # Envoyer les données à tous les clients WebSocket connectés
     for ws_instance in websockets:
         ws_instance.send_json(last_bet_data)
 
