@@ -1,1 +1,1 @@
-web: daphne -b 0.0.0.0 -p $PORT index:app --websocket_protocol=graphql-ws
+web: uvicorn index:app --host=0.0.0.0 --port=${PORT:-5000}
